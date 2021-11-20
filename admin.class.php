@@ -2,7 +2,7 @@
 
 
 /**
- * Class Armin
+ * Class Admin
  *
  * @author 可乐要加冰
  * @version 1.0
