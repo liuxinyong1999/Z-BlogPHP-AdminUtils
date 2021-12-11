@@ -11,7 +11,10 @@
  */
 class ConfigUtils {
 
-    public static $name = '配置名';
+    /**
+     * @var string 配置名，一般可以填写应用ID
+     */
+    public static $name = '';
 
     public static function config($name = null) {
         global $zbp;
