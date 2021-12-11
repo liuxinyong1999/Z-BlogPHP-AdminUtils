@@ -20,8 +20,14 @@ class AdminUtils {
         }
 
         if (is_string($default)) {
-            $default = GetFileExt($default);
-            $default = include $default;
+            $default = self::_get_fullpath($default);
+            if ($default !== null && is_readable($default)) {
+                $default = include $default;
+            }
+        }
+
+        if (empty($file) && isset($default['default_action'])) {
+            $file = $default['default_action'];
         }
 
         if (isset($default['allow_actions'])) {
@@ -44,6 +50,10 @@ class AdminUtils {
         }
 
         $file = self::_get_fullpath($file, $base);
+
+        if ($file === null || is_readable($file)) {
+            $zbp->ShowError(2);
+        }
 
         if ($is_ajax || $is_post) {
             if ($is_ajax) {
@@ -76,6 +86,8 @@ class AdminUtils {
     }
 
     private static function _get_fullpath($file, $base = 'admin') {
+        if ($file == '') return;
+
         if (GetFileExt($file) != 'php') {
             $file .= '.php';
         }
