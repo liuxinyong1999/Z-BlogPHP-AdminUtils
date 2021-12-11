@@ -17,6 +17,8 @@ class Admin {
 
     protected $rootPath;
 
+    protected $blogtitle = null;
+
     protected $menus = array();
     protected $now_menu = '';
 
@@ -91,6 +93,11 @@ class Admin {
         } elseif (in_array($key, array('css', 'cssfile' . 'js', 'jsfiile'))) {
             $this->$key($value);
         }
+    }
+
+    public function blogtitle($title) {
+        $this->blogtitle = $title;
+        return $this;
     }
 
     public function css($css) {
@@ -282,7 +289,14 @@ class Admin {
 
     public function displayFull($title = null) {
         global $blogpath, $blogtitle;
+        if ($title == null) $title = $this->blogtitle;
         if ($title != null) $blogtitle = $title;
+        foreach (array('zbp', 'lang', 'blogname', 'blogtitle', 'bloghost', 'blogversion', 'action') as $key) {
+            if (isset($GLOBALS[$key])) {
+                $$key = &$GLOBALS[$key];
+            }
+        }
+        unset($key, $title);
         require $blogpath . 'zb_system/admin/admin_header.php';
         foreach ($this->cssfiles as $file) {
             echo '<link rel="stylesheet" href="';

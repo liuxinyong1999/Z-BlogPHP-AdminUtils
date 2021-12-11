@@ -11,8 +11,14 @@
  */
 class ConfigUtils {
 
-    public static function config($name) {
+    public static $name = '配置名';
+
+    public static function config($name = null) {
         global $zbp;
+
+        if ($name === null) {
+            $name = self::$name;
+        }
 
         $key = null;
         if (is_string($name)) {
@@ -28,7 +34,7 @@ class ConfigUtils {
         return new static($config, $key);
     }
 
-    public static function post($name, $filters) {
+    public static function post($filters, $name = null) {
         static::config($name)->save($filters, 'post');
     }
 
@@ -38,7 +44,7 @@ class ConfigUtils {
     private $config;
     private $key;
 
-    public function __construct($config, $key = null) {
+    protected function __construct($config, $key = null) {
         $this->config = $config;
         if ($key !== null)
         $this->key = FilterCorrectName($key);
