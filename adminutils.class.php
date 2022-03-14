@@ -4,20 +4,19 @@
 class AdminUtils {
 
     /**
-     * @var string Admin的类名前缀，如果有命名空间也要一起写上
+     * @var string ConfigUtils和Admin的类名前缀
      */
     public static $preffix = '';
 
     public static function load($default = '', $key = 'get.act', $base = 'admin') {
         global $zbp;
 
+        $type = 'request';
         if (strpos($key, '.')) {
             $type = SplitAndGet($key, '.', 0);
             $key = SplitAndGet($key, '.', 1);
-            $file = GetVars($key, $type);
-        } else {
-            $file = GetVars($key);
         }
+        $file = GetVars($key, $type);
 
         if (is_string($default)) {
             $default = self::_get_fullpath($default);
@@ -26,20 +25,41 @@ class AdminUtils {
             }
         }
 
-        if (empty($file) && isset($default['default_action'])) {
-            $file = $default['default_action'];
+        if (empty($file) && isset($default['default'])) {
+            $file = $default['default'];
         }
 
-        if (isset($default['allow_actions'])) {
-            if (!in_array($file, $default['allow_actions'])) {
+        if (isset($default['allows'])) {
+            if (!in_array($file, $default['allows'])) {
                 $zbp->ShowError(2);
             }
         } else {
             $file = FormatString($file, '[filename]');
         }
 
+        if (isset($default['submenu'])) {
+            $menus = array();
+            foreach ($default['submenu'] as $id => $value) {
+                if (is_string($id) && is_string($value) && in_array(strtolower($type), array('get', 'request'))) {
+                    $value = array(
+                        'url' => '?' . $key . '=' . $id,
+                        'name' => $value
+                    );
+                }
+                $menus[$id] = $value;
+            }
+            $default['submenu'] = $menus;
+            if (!isset($default['nowmenu'])) {
+                $default['nowmenu'] = $file;
+            }
+        }
+
+        if (!isset($default['blogtitle']) && isset($default['nowmenu'])) {
+            $default['blogtitle'] = $default['submenu'][$default['nowmenu']]['name'];
+        }
+
         $is_post = count($_POST) > 0;
-        $is_ajax = strtolower((string)GetVars('HTTP_X_REQUESTED_WITH')) == 'xmlhttprequest';
+        $is_ajax = strtolower((string)GetVars('HTTP_X_REQUESTED_WITH', 'server')) == 'xmlhttprequest';
 
         if ($is_ajax) {
             CheckIsRefererValid();
@@ -51,7 +71,7 @@ class AdminUtils {
 
         $file = self::_get_fullpath($file, $base);
 
-        if ($file === null || is_readable($file)) {
+        if ($file === null || !is_readable($file)) {
             $zbp->ShowError(2);
         }
 
@@ -62,8 +82,7 @@ class AdminUtils {
             include $file;
         } else {
             $props = include $file;
-            $props = array_merge($default, $props);
-            (${self::$preffix . 'Admin::create'}($props))->load($props)->displayFull();
+            (self::$preffix . 'Admin::create')()->load($default)->load($props)->displayFull();
         }
     }
 
@@ -86,8 +105,6 @@ class AdminUtils {
     }
 
     private static function _get_fullpath($file, $base = 'admin') {
-        if ($file == '') return;
-
         if (GetFileExt($file) != 'php') {
             $file .= '.php';
         }

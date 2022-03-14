@@ -48,27 +48,13 @@ class Admin {
         $this->rootPath = rtrim($root, '/') . '/';
     }
 
-    public function load($file, $base = 'admin') {
-        if (GetFileExt($file) != 'php') {
-            $file .= '.php';
-        }
-
-        if (!$this->_is_fullpath(false)) {
-            if (strpos($file, '/')) {
-                $file = $this->rootPath . $file;
-            } elseif ($this->_is_fullpath($base)) {
-                $file = rtrim($base, '/') . '/' . $file;
-            } else {
-                $file = $this->rootPath . rtrim($base, '/') . '/' . $file;
-            }
-        }
-
-        $props = include $file;
+    public function load($props) {
         if (is_array($props)) {
             foreach ($props as $key => $value) {
                 $this->load_prop($key, $value);
             }
         }
+        return $this;
     }
 
     protected function load_prop($key, $value) {
@@ -90,7 +76,7 @@ class Admin {
             foreach ($value as $k => $v) {
                 $this->field($k, $v);
             }
-        } elseif (in_array($key, array('css', 'cssfile' . 'js', 'jsfiile'))) {
+        } elseif (in_array($key, array('css', 'cssfile', 'js', 'jsfile', 'nowmenu', 'blogtitle'))) {
             $this->$key($value);
         }
     }
@@ -201,15 +187,18 @@ class Admin {
     }
 
     public function end() {
-        if ($this->key == '') return $this;
-        $default = new static();
-        $forms = array();
-        foreach (array('type', 'style', 'class', 'fields', 'form', 'config') as $key) {
-            $forms[$this->key][$key] = $this->$key;
-            $this->$key = $default->$key;
+        if ($this->key != '') {
+            $forms = array($this->key => array());
+            foreach (array('type', 'style', 'class', 'fields', 'form', 'config') as $key) {
+                $forms[$this->key][$key] = $this->$key;
+            }
+            $this->forms = array_merge($this->forms, $forms);
+            $default = new static();
+            foreach (array('type', 'style', 'class', 'fields', 'form', 'config') as $key) {
+                $this->$key = $default->$key;
+            }
+            $this->key = '';
         }
-        array_merge($this->forms, $forms);
-        $this->key = '';
         return $this;
     }
 
@@ -254,7 +243,7 @@ class Admin {
         foreach ($this->menus as $id => $menu) {
             $html .= '<a id="' . $id . '" href="' . $menu['url'] . '"';
             if (isset($menu['float'])) {
-                $html = ' style="float:' . $menu['float'] . '"';
+                $html .= ' style="float:' . $menu['float'] . '"';
             }
             if (isset($menu['target'])) {
                 $html .= ' target="' . $menu['target'] . '"';
@@ -306,7 +295,7 @@ class Admin {
 
                 echo $file;
             } else {
-                echo plugin_dir_url($this->rootPath) . ltrim($file, '/');
+                echo plugin_dir_url(__FILE__) . ltrim($file, '/');
             }
             echo '">';
         }
@@ -316,7 +305,7 @@ class Admin {
         require $blogpath . 'zb_system/admin/admin_top.php';
         echo <<<html
 <div id="divMain">
-<div class="divHeader"><?php echo $blogtitle; ?></div>
+<div class="divHeader">$blogtitle</div>
 <div class="SubMenu">
 html;
         $this->displaySubMenu();
@@ -337,7 +326,7 @@ html;
 
                 echo $file;
             } else {
-                echo plugin_dir_url($this->rootPath) . ltrim($file, '/');
+                echo plugin_dir_url(__FILE__) . ltrim($file, '/');
             }
             echo '"></script>';
         }
@@ -354,6 +343,10 @@ html;
 
     public function display() {
         echo $this->build();
+    }
+
+    public function field_html($args) {
+        return $args['html'];
     }
 
     public function field_help() {
@@ -404,6 +397,43 @@ html;
         }
     }
 
+    public function field_select($args) {
+        if (isset($args['options'])) {
+            $options = $args['options'];
+        } else {
+            return '';
+        }
+
+        $values = $args['value'];
+        if (!is_array($values)) {
+            $values = array($values);
+        }
+
+        $html = '<select';
+        $arr = array('id', 'class', 'style', 'name', 'value', 'checked', 'placeholder', 'pattern', 'max', 'min', 'step', 'accept', 'src');
+        foreach ($arr as $key) {
+            if (isset($args[$key])) {
+                $val = htmlspecialchars($args[$key]);
+                $html .= " $key=\"{$val}\"";
+            }
+        }
+        if (isset($args['multiple']) && $args['multiple']) {
+            $html .= ' multiple-"multiple"';
+        }
+        $html .= '>';
+
+        foreach ($options as $option => $label) {
+            if ($html != '') $html .= '&nbsp;';
+            $html .= '<option value="' . $option .'"';
+            if (in_array($option, $values)) $html .= ' selected="selected"';
+            $html .= '>' .$label . '</option>';
+        }
+        
+        $html .= '</select>';
+
+        return $html;
+    }
+
     public function field_redios($args) {
         if (isset($args['value']) && is_array($args['value']) && count($args['value']) > 0) {
             $args['value'] = current($args['value']);
@@ -441,6 +471,14 @@ html;
         return $html;
     }
 
+    public function field_zbcheck($args) {
+        $args['class'] = 'checkbox';
+        if (isset($args['value'])) {
+            $args['value'] = $args['value'] ? 1 : 0;
+        }
+        return $this->field_input($args);
+    }
+
     public function field_hidden($args) {
         $args['input'] = 'hidden';
         return $this->field_input($args);
@@ -462,7 +500,7 @@ html;
     public function field_input($args) {
         $html = '<input';
         if (isset($args['input'])) {
-            $html .= ' type="' . $args . '"';
+            $html .= ' type="' . $args['input'] . '"';
         }
 
         $arr = array('id', 'class', 'style', 'name', 'value', 'checked', 'placeholder', 'pattern', 'max', 'min', 'step', 'accept', 'src');
@@ -472,27 +510,22 @@ html;
                 $html .= " $key=\"{$val}\"";
             }
         }
+        $html .= '>';
 
         return $html;
     }
 
     protected function build_field($key, $args) {
-        if (isset($args['name']) && !is_int($key)) {
+        if (!isset($args['name']) && !is_int($key)) {
             $args['name'] = $key;
-        }
-        if (isset($args['value'])) {
-            if (isset($args['default'])) {
-                $args['value'] = $this->_get_config($key, $args['default']);
-            } else {
-                $args['value'] = $this->_get_config($key);
-            }
         }
 
         $html = '';
 
-        if ($args['type'] == 'title') {
+        $type = $this->_get_value($args, 'type');
+        if ($type == 'title') {
             if ($this->type == 'table') {
-                $html .= '<tr><th colspan="2">' . $args['label'];
+                $html .= '<tr><th colspan="2">' . $args['title'];
                 if (isset($args['subtitle'])) {
                     $html .= '<small>' . $args['subtitle'] . '</small>';
                 }
@@ -510,70 +543,151 @@ html;
                 }
             }
         } else {
-            if ($this->type == 'table') {
-                if ($args['type'] == 'hidden') {
-                    $html .= '<tr style="display:none">';
-                } else {
-                    $html .= '<tr>';
-                }
-                if (isset($args['label'])) {
-                    $html .= '<td>' . $args['label'] . '</td>';
-                    $html .= '<td>';
-                } else {
-                    $html .= '<td colspan="2">';
-                }
-            } elseif ($this->type == 'div') {
-                if ($args['type'] == 'hidden') {
-                    $html .= '<p style="display:none">';
-                } else {
-                    $html .= '<p>';
-                }
-                if (isset($args['label'])) {
-                    $html .= '<span>' . $args['label'] . '</span>';
-                }
-            } elseif (strpos($this->type, 'custom_') === 0) {
-                $fun = substr($this->type, 7);
-                if (function_exists($fun)) {
-                    $html .= $fun('field_head', $this, $args);
+            if ($type != 'hidden') {
+                if ($this->type == 'table') {
+                    $html .= '<tr';
+                    if (isset($args['row_class'])) {
+                        $html .= ' class="' . $args['row_class'] . '"';
+                    }
+                    if ($type == 'hidden') {
+                        $html .= ' style="display:none"';
+                    }
+                    $html .= '>';
+                    if (isset($args['label'])) {
+                        $html .= '<td>' . $args['label'] . '</td>';
+                        $html .= '<td>';
+                    } else {
+                        $html .= '<td colspan="2">';
+                    }
+                } elseif ($this->type == 'div') {
+                    $html .= '<p';
+                    if (isset($args['row_class'])) {
+                        $html .= ' class="' . $args['row_class'] . '"';
+                    }
+                    if ($type == 'hidden') {
+                        $html .= ' style="display:none"';
+                    }
+                    $html .= '>';
+                    if (isset($args['label'])) {
+                        $html .= '<span>' . $args['label'] . '</span>';
+                    }
+                } elseif (strpos($this->type, 'custom_') === 0) {
+                    $fun = substr($this->type, 7);
+                    if (function_exists($fun)) {
+                        $html .= $fun('field_head', $this, $args);
+                    }
                 }
             }
 
-            $fun = 'field_' . $args['type'];
-            if (method_exists($this, $fun)) {
-                $html .= $this->$fun($args);
-            } elseif (strpos($args['type'], 'custom_')) {
-                $fun = substr($args['type'], 7);
-                if (function_exists($fun)) {
-                    $html .= $fun($args, $this);
+            if (isset($args['fields'])) {
+                $fields = $args['fields'];
+                $i = 0;
+                foreach ($fields as $key1 => $args1) {
+                    if (!isset($args1['name']) && !is_int($key1)) {
+                        $args1['name'] = $key1;
+                    }
+                    if (isset($args['name']) && isset($args1['name'])) {
+                        $name = $args1['name'];
+                        if (strpos($name, ']')) {
+                            $args1['name'] = $args['name'] . '[' . preg_replace('/\]/', '][', $name);
+                        } else {
+                            $args1['name'] = $args['name'] . '[' . $name . ']';
+                        }
+                    }
+                    if (!isset($args1['value']) && isset($args1['name'])) {
+                        if (isset($args1['default'])) {
+                            $args1['value'] = $this->_get_config($args1['name'], $args1['default']);
+                        } else {
+                            $args1['value'] = $this->_get_config($args1['name']);
+                        }
+                    }
+
+                    if (isset($args1['begin'])) {
+                        $html .= $args1['begin'];
+                    }
+
+                    if (isset($args1['label'])) {
+                        $html .= '<label>' . $args1['label'] . '</label>&nbsp;';
+                    }
+
+                    $fun = 'field_' . $args1['type'];
+                    if (method_exists($this, $fun)) {
+                        $html .= $this->$fun($args1);
+                    } elseif (strpos($args1['type'], 'custom_')) {
+                        $fun = substr($args1['type'], 7);
+                        if (function_exists($fun)) {
+                            $html .= $fun($args1, $this);
+                        }
+                    }
+
+                    if (isset($args1['help'])) {
+                        $html .= '&nbsp;' . $args1['help'];
+                    }
+
+                    if (isset($args1['end'])) {
+                        $html .= $args1['end'];
+                    } else {
+                        $html .= '&nbsp;&nbsp';
+                    }
+
+                    $i++;
+                }
+            } else {
+                if (!isset($args['value']) && isset($args['name'])) {
+                    if (isset($args['default'])) {
+                        $args['value'] = $this->_get_config($args['name'], $args['default']);
+                    } else {
+                        $args['value'] = $this->_get_config($args['name']);
+                    }
+                }
+
+                if (isset($args['begin'])) {
+                    $html .= $args['begin'];
+                }
+
+                $fun = 'field_' . $type;
+                if (method_exists($this, $fun)) {
+                    $html .= $this->$fun($args);
+                } elseif (strpos($type, 'custom_')) {
+                    $fun = substr($type, 7);
+                    if (function_exists($fun)) {
+                        $html .= $fun($args, $this);
+                    }
+                }
+
+                if (isset($args1['end'])) {
+                    $html .= $args1['end'];
                 }
             }
 
-            if ($this->type == 'table') {
-                if (isset($args['help'])) {
-                    if (isset($args['helpstyle'])) {
-                        $html .= '<p style="' . $args['helpstyle'] . '">' . $args['help'] . '</p>';
-                    } elseif (isset($args['helpcolor'])) {
-                        $html .= '<p style="color:' . $args['helpcolor'] . '">' . $args['help'] . '</p>';
-                    } else {
-                        $html .= '<p>' . $args['help'] . '</p>';
+            if ($type != 'hidden') {
+                if ($this->type == 'table') {
+                    if (isset($args['help'])) {
+                        if (isset($args['helpstyle'])) {
+                            $html .= '<p style="' . $args['helpstyle'] . '">' . $args['help'] . '</p>';
+                        } elseif (isset($args['helpcolor'])) {
+                            $html .= '<p style="color:' . $args['helpcolor'] . '">' . $args['help'] . '</p>';
+                        } else {
+                            $html .= '<p>' . $args['help'] . '</p>';
+                        }
                     }
-                }
-                $html .= '</td></tr>';
-            } elseif ($this->type == 'div') {
-                if (isset($args['help'])) {
-                    if (isset($args['helpstyle'])) {
-                        $html .= '<p style="' . $args['helpstyle'] . '">' . $args['help'] . '</p>';
-                    } elseif (isset($args['helpcolor'])) {
-                        $html .= '<p style="color:' . $args['helpcolor'] . '">' . $args['help'] . '</p>';
-                    } else {
-                        $html .= '<p>' . $args['help'] . '</p>';
+                    $html .= '</td></tr>';
+                } elseif ($this->type == 'div') {
+                    if (isset($args['help'])) {
+                        if (isset($args['helpstyle'])) {
+                            $html .= '<p style="' . $args['helpstyle'] . '">' . $args['help'] . '</p>';
+                        } elseif (isset($args['helpcolor'])) {
+                            $html .= '<p style="color:' . $args['helpcolor'] . '">' . $args['help'] . '</p>';
+                        } else {
+                            $html .= '<p>' . $args['help'] . '</p>';
+                        }
                     }
-                }
-                $html .= '</p>';
-            } elseif (strpos($this->type, 'custom_') === 0) {
-                $fun = substr($this->type, 7);
-                if (function_exists($fun)) {
-                    $html .= $fun('field_foot', $this, $args);
+                    $html .= '</p>';
+                } elseif (strpos($this->type, 'custom_') === 0) {
+                    $fun = substr($this->type, 7);
+                    if (function_exists($fun)) {
+                        $html .= $fun('field_foot', $this, $args);
+                    }
                 }
             }
         }
@@ -605,9 +719,9 @@ html;
             if (is_array($csrf)) {
                 $html .= '<input name="' . $csrf[1] . '" type="hidden" value="' . $zbp->GetCSRFToken($csrf[0]) . '">';
             } elseif (is_string($csrf)) {
-                $html .= '<input name="csrfTokdn" type="hidden" value="' . $zbp->GetCSRFToken($csrf) . '">';
+                $html .= '<input name="csrfToken" type="hidden" value="' . $zbp->GetCSRFToken($csrf) . '">';
             } elseif ($csrf) {
-                $html .= '<input name="csrfTokdn" type="hidden" value="' . $zbp->GetCSRFToken() . '">';
+                $html .= '<input name="csrfToken" type="hidden" value="' . $zbp->GetCSRFToken() . '">';
             }
         }
 
@@ -662,6 +776,16 @@ html;
     }
 
     protected function _get_config($key, $default = null) {
+        if (strpos($key, '[')) {
+            foreach (explode('[', $key) as $kk) {
+                if (isset($value)) {
+                    $value = $this->_get_value($value, trim($kk, '[]'));
+                } else {
+                    $value = $this->_get_config(trim($kk, '[]'));
+                }
+            }
+            return isset($value) ? $value : $default;
+        }
         if (is_object($this->config)) {
             return isset($this->config->$key) ? $this->config->$key : $default;
         } elseif (is_array($this->config)) {
@@ -677,14 +801,5 @@ html;
         } else {
             return $default;
         }
-    }
-
-    private function _is_fullpath($file) {
-        if (PHP_SYSTEM == SYSTEM_WINDOWS && preg_match('/^[a-z]\:/i', $file)) {
-            return true;
-        } elseif (strpos($file, '/') === 0) {
-            return true;
-        }
-        return false;
     }
 }
