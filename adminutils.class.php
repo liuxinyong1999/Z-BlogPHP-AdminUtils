@@ -75,11 +75,12 @@ class AdminUtils {
             $zbp->ShowError(2);
         }
 
-        if ($is_ajax || $is_post) {
-            if ($is_ajax) {
-                Add_Filter_Plugin('Filter_Plugin_Debug_Handler', get_class() . '::json_error');
-            }
+        if ($is_post) {
             include $file;
+        } elseif ($is_ajax) {
+            Add_Filter_Plugin('Filter_Plugin_Debug_Handler', get_class() . '::json_error');
+            $result = include $file;
+            self::json_return(0, $result);
         } else {
             $props = include $file;
             (self::$preffix . 'Admin::create')()->load($default)->load($props)->displayFull();
@@ -102,6 +103,26 @@ class AdminUtils {
             echo json_encode(array('code' => $code, 'msg' => $data));
         }
         die();
+    }
+
+    public static function progress($progress, $length, $url, $style = array()) {
+        $color = GetValueInArray($style, 'color', '#3a6ea5');
+        $border = GetValueInArray($style, 'border', '#3a6ea5');
+        $pgwidth = GetValueInArray($style, 'pgwidth', '300px');
+        $text = GetValueInArray($style, 'text', '已完成(%1$d/%2$d) %3$.1f%%');
+
+        $percent = ($progress / $length) * 100;
+        $text = sprintf($text, $progress, $length, $percent);
+
+        $html = "<div style=\"width:auto;margin:50px auto 0;padding:15px;\">" .
+            "<p style=\"margin-bottom:15px;text-align:center\">$text</p>" .
+            "<div style=\"width:$pgwidth;height:20px;margin:0 auto;border:1px solid $border\">" .
+            "<div style=\"background:$color;height:100%;width:$percent%\"></div>" .
+            "</div>" .
+            "<p style=\"margin-top:15px;text-align:center\"><a href=\"$url\">若浏览器长时间没有反应，请点击此处跳转</a></p>" .
+            "</div>" .
+            "<script>setTimeout(function () {location.href = '$url';}, 1);</script>";
+        return $html;
     }
 
     private static function _get_fullpath($file, $base = 'admin') {

@@ -38,7 +38,7 @@ class Admin {
 
     protected $fields = array();
 
-    protected $form = array();
+    protected $form = array('method' => 'post');
 
     private $config = array();
 
@@ -61,22 +61,20 @@ class Admin {
         if ($key == 'forms') {
             foreach ($value as $k => $v) {
                 $this->begin($k);
-                foreach ($v as $kk => $vv) {
-                    $this->load_prop($kk, $vv);
-                }
+                $this->load($v);
                 $this->end();
             }
         } elseif ($key == 'submenu') {
             foreach ($value as $k => $v) {
                 $this->submenu($k, $v);
             }
-        } elseif (in_array($key, array('type', 'class', 'style', 'form', 'config'))) {
+        } elseif (in_array($key, array('type', 'class', 'style', 'config'))) {
             $this->$key = $value;
         } elseif ($key == 'fields') {
             foreach ($value as $k => $v) {
                 $this->field($k, $v);
             }
-        } elseif (in_array($key, array('css', 'cssfile', 'js', 'jsfile', 'nowmenu', 'blogtitle'))) {
+        } elseif (in_array($key, array('css', 'cssfile', 'js', 'jsfile', 'nowmenu', 'form', 'blogtitle'))) {
             $this->$key($value);
         }
     }
@@ -150,7 +148,7 @@ class Admin {
         if ($url === false) {
             $this->form = null;
         } elseif (is_array($url)) {
-            $this->form = $url;
+            $this->form = array_merge($this->form, $url);
         } else {
             $this->form = array(
                 'name' => is_string($this->key) && $this->key ? $this->key : '',
@@ -280,7 +278,7 @@ class Admin {
         global $blogpath, $blogtitle;
         if ($title == null) $title = $this->blogtitle;
         if ($title != null) $blogtitle = $title;
-        foreach (array('zbp', 'lang', 'blogname', 'blogtitle', 'bloghost', 'blogversion', 'action') as $key) {
+        foreach (array('zbp', 'lang', 'blogname', 'bloghost', 'blogversion', 'action') as $key) {
             if (isset($GLOBALS[$key])) {
                 $$key = &$GLOBALS[$key];
             }

@@ -59,6 +59,13 @@ class ConfigUtils {
         $this->key = $key;
     }
 
+    public function contain($key, $value, $delimiter = '|') {
+        $var = $this->get($key);
+        if (is_null($var)) return false;
+        if (is_string($var)) $var = explode($delimiter, $var);
+        return array_search($value, $var) !== false;
+    }
+
     public function get($key, $default = null) {
         if ($this->key != '' && !$this->saving) {
             $key = $this->key . '.' . $key;
